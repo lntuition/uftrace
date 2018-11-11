@@ -155,7 +155,7 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		}
 	}
 
-	while (i < count) {
+	while (++i < count) {
 		if (check_unsupported(disasm, &insn[i], addr, code_size) == CODE_PATCH_NO) {
 			ret = INSTRUMENT_FAILED;
 			break;
