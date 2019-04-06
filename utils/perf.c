@@ -606,3 +606,108 @@ add_it:
 	handle->perf_event_processed = true;
 }
 
+/**
+ * verify_perf_task_tree - verify task tree using perf event
+ * @handle: uftrace data file handle
+ * @root: root of task tree
+ *
+ * This function reads perf events and build task tree (process and thread)
+ * also save task's lifetime info.
+ */
+bool verify_perf_task_tree(struct uftrace_data *handle)
+{
+	struct uftrace_perf_reader *perf;
+	struct uftrace_task *t;
+	struct uftrace_task *p;  /* parent_task */
+	struct uftrace_task *tmp;
+	bool ret = true;
+	int ppid;
+	int i;
+
+	while (1) {
+		i = read_perf_data(handle);
+		if (i < 0)
+			break;
+
+		perf = &handle->perf[i];
+		t = find_task(&handle->sessions, perf->tid);
+		if (t == NULL) {
+			pr_dbg("cannot find task %d\n", perf->tid);
+			ret = false;
+			break;
+		}
+
+		switch (perf->type) {
+		case PERF_RECORD_FORK:
+			/* save task start time */
+			t->time.run = perf->time;
+
+			if (t->pid != perf->u.task.pid) {
+				pr_dbg("different pid: task %d: pid = (%d vs %d)\n",
+				       t->tid, t->pid, perf->u.task.pid);
+				ret = false;
+			}
+
+			ppid = perf->u.task.ppid;
+			/* find thread group leader if it's not a fork */
+			if (perf->tid != perf->u.task.pid)
+				ppid = perf->u.task.pid;
+
+			p = find_task(&handle->sessions, ppid);
+			if (p == NULL) {
+				pr_dbg("cannot find parent task %d\n", ppid);
+				ret = false;
+				break;
+			}
+
+			list_for_each_entry(tmp, &p->children, siblings)
+				if (tmp->tid == t->tid)
+					break;
+
+			if (list_no_entry(tmp, &p->children, siblings)) {
+				pr_dbg("cannot find task %d in children list\n", t->tid);
+				ret = false;
+			}
+			break;
+		case PERF_RECORD_EXIT:
+			/* update task lifetime */
+			if (t->time.run != 0)
+				t->time.run = perf->time - t->time.run;
+			break;
+		case PERF_RECORD_COMM:
+			memcpy(t->comm, perf->u.comm.comm, sizeof(t->comm));
+
+			/* first task doesn't have FORK event*/
+			if (t->time.run == 0)
+				t->time.run = perf->time;
+			break;
+		case PERF_RECORD_SWITCH:
+			if (perf->u.ctxsw.out) {
+				t->time.stamp = perf->time;
+				break;
+			}
+
+			/* update idle time from sched-out to sched-in */
+			if (t->time.stamp != 0)
+				t->time.idle += perf->time - t->time.stamp;
+
+			t->time.stamp = 0;
+			break;
+		default:
+			break;
+		}
+
+		perf->valid = false;
+	}
+
+	for (i = 0; i < handle->nr_perf; i++) {
+		perf = &handle->perf[i];
+
+		/* reset file position for future processing */
+		rewind(perf->fp);
+		perf->valid = false;
+		perf->done  = false;
+	}
+
+	return ret;
+}

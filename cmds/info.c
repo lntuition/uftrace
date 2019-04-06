@@ -1148,6 +1148,8 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		return -1;
 	}
 
+	fstack_setup_filters(opts, &handle);
+
 	if (opts->print_symtab) {
 		struct symtabs symtabs = {
 			.loaded = false,
