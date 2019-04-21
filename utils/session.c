@@ -165,6 +165,7 @@ void create_session(struct uftrace_session_link *sessions,
 		read_session_map(dirname, &s->symtabs, s->sid);
 		load_symtabs(&s->symtabs, dirname, s->exename);
 
+		s->symtabs.flags &= ~SYMTAB_FL_ADJ_OFFSET;
 		load_module_symtabs(&s->symtabs);
 		load_debug_info(&s->symtabs);
 	}

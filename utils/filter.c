@@ -921,6 +921,9 @@ static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 		filter.start = sym->addr;
 		filter.end   = sym->addr + sym->size;
 
+		filter.start += dinfo->offset;
+		filter.end   += dinfo->offset;
+
 		ret += add_filter(root, &filter, tr,
 				  patt->type == PATT_SIMPLE, dinfo, setting);
 	}
@@ -1005,8 +1008,10 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			}
 			else {
 				map = find_map_by_name(symtabs, module);
-				if (map) {
-					ret = add_trigger_entry(root, &map->symtab,
+				if (map && map->mod) {
+					struct symtab *stab = &map->mod->symtab;
+
+					ret = add_trigger_entry(root, stab,
 								&patt, &tr,
 								&map->dinfo,
 								setting);
@@ -1026,7 +1031,13 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 
 			/* and then find all module's symtabs */
 			for_each_map(symtabs, map) {
-				ret += add_trigger_entry(root, &map->symtab,
+				struct symtab *stab = &map->mod->symtab;
+
+				/* some modules don't have symbol table */
+				if (map->mod == NULL)
+					continue;
+
+				ret += add_trigger_entry(root, stab,
 							 &patt, &tr,
 							 &map->dinfo,
 							 setting);

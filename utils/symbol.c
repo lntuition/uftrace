@@ -1160,6 +1160,8 @@ void load_module_symtabs(struct symtabs *symtabs)
 		}
 
 		find_module_binary(symtabs, maps);
+		if (maps->mod && maps->mod->symtab.nr_sym)
+			continue;
 
 		pr_dbg2("load module symbol table: %s\n", maps->libname);
 
@@ -1511,12 +1513,14 @@ void save_module_symtabs(struct symtabs *symtabs)
 {
 	char *symfile = NULL;
 	struct uftrace_mmap *map;
+	struct symtab *stab;
 
 	for_each_map(symtabs, map) {
 		xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
 			  basename(map->libname));
 
-		save_module_symbol_file(&map->symtab, symfile, map->start);
+		stab = map->mod ? &map->mod->symtab : &map->symtab;
+		save_module_symbol_file(stab, symfile, 0);
 
 		free(symfile);
 		symfile = NULL;

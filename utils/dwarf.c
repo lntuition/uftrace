@@ -886,7 +886,6 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		return DWARF_CB_OK;
 
 	dwarf_lowpc(die, &offset);
-	offset += bd->dinfo->offset;
 
 	if (dwarf_hasattr_integrate(die, DW_AT_linkage_name))
 		name = str_attr(die, DW_AT_linkage_name, true);
@@ -1133,14 +1132,13 @@ void prepare_debug_info(struct symtabs *symtabs,
 			 &dwarf_args, &dwarf_rets);
 
 	for_each_map(symtabs, map) {
-		/* avoid loading of main executable or libmcount */
-		if (strcmp(map->libname, symtabs->filename) &&
-		    strncmp(basename(map->libname), "libmcount", 9)) {
-			setup_debug_info(map->libname, &map->dinfo, map->start,
-					 force);
-			build_dwarf_info(&map->dinfo, &map->symtab, ptype,
-					 &dwarf_args, &dwarf_rets);
-		}
+		if (map->mod == NULL)
+			continue;
+
+		setup_debug_info(map->libname, &map->dinfo, map->start,
+				 force);
+		build_dwarf_info(&map->dinfo, &map->mod->symtab, ptype,
+				 &dwarf_args, &dwarf_rets);
 	}
 
 	strv_free(&dwarf_args);
@@ -1159,9 +1157,10 @@ void finish_debug_info(struct symtabs *symtabs)
 	release_debug_info(&symtabs->dinfo);
 
 	for_each_map(symtabs, map) {
-		if (strcmp(map->libname, symtabs->filename) &&
-		    strncmp(basename(map->libname), "libmcount", 9))
-			release_debug_info(&map->dinfo);
+		if (map->mod == NULL)
+			continue;
+
+		release_debug_info(&map->dinfo);
 	}
 
 	symtabs->loaded_debug = false;
@@ -1247,8 +1246,7 @@ static void save_debug_entries(struct debug_info *dinfo,
 		if (loc->sym == NULL)
 			continue;
 
-		save_debug_file(fp, 'F', loc->sym->name,
-				loc->sym->addr - dinfo->offset);
+		save_debug_file(fp, 'F', loc->sym->name, loc->sym->addr);
 		save_debug_file(fp, 'L', loc->file->name, loc->line);
 
 		entry = find_debug_entry(&dinfo->args, loc->sym->addr);
@@ -1278,9 +1276,10 @@ void save_debug_info(struct symtabs *symtabs, char *dirname)
 	save_debug_entries(&symtabs->dinfo, dirname, symtabs->filename);
 
 	for_each_map(symtabs, map) {
-		if (strcmp(map->libname, symtabs->filename) &&
-		    strncmp(basename(map->libname), "libmcount", 9))
-			save_debug_entries(&map->dinfo, dirname, map->libname);
+		if (map->mod == NULL)
+			continue;
+
+		save_debug_entries(&map->dinfo, dirname, map->libname);
 	}
 }
 
@@ -1332,7 +1331,6 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 		switch (line[0]) {
 		case 'F':
 			offset = strtoul(&line[3], &pos, 16);
-			offset += dinfo->offset;
 
 			if (*pos == ' ')
 				pos++;
@@ -1397,12 +1395,12 @@ void load_debug_info(struct symtabs *symtabs)
 			symtabs->dirname, symtabs->filename);
 
 	for_each_map(symtabs, map) {
-		if (strcmp(map->libname, symtabs->filename) &&
-		    strncmp(basename(map->libname), "libmcount", 9)) {
-			map->dinfo.offset = map->start;
-			load_debug_file(&map->dinfo, &map->symtab,
-					symtabs->dirname, map->libname);
-		}
+		if (map->mod == NULL)
+			continue;
+
+		map->dinfo.offset = map->start;
+		load_debug_file(&map->dinfo, &map->mod->symtab,
+				symtabs->dirname, map->libname);
 	}
 
 	symtabs->loaded_debug = true;

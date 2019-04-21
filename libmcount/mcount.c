@@ -35,7 +35,7 @@ uint64_t mcount_threshold;
 
 /* symbol table of main executable */
 struct symtabs symtabs = {
-	.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_ADJ_OFFSET,
+	.flags = SYMTAB_FL_DEMANGLE,
 };
 
 /* size of shmem buffer to save uftrace_record */
