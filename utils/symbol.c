@@ -1734,32 +1734,20 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 	}
 
 	if (maps) {
-		if (maps->symtab.nr_sym == 0) {
-			bool found = false;
-
-			if (symtabs->flags & SYMTAB_FL_USE_SYMFILE) {
-				char *symfile = NULL;
-				unsigned long offset = 0;
-
-				if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
-					offset = maps->start;
-
-				xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
-					  basename(maps->libname));
-				if (!load_module_symbol_file(&maps->symtab,
-							     symfile, offset)) {
-					found = true;
-				}
-				free(symfile);
-			}
-
-			if (!found) {
-				load_symtab(&maps->symtab, maps->libname,
-					    maps->start, symtabs->flags);
-			}
+		if (maps->mod == NULL) {
+			find_module_binary(symtabs, maps);
+			if (maps->mod == NULL)
+				return NULL;
 		}
 
-		stab = &maps->symtab;
+		/*
+		 * use relative address for module symtab
+		 * since mappings can be loaded at any address
+		 * for multiple sessions
+		 */
+		addr -= maps->start;
+
+		stab = &maps->mod->symtab;
 		sym = bsearch(&addr, stab->sym, stab->nr_sym,
 			      sizeof(*sym), addrfind);
 	}
