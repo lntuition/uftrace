@@ -150,6 +150,7 @@ struct uftrace_session_link {
 	struct rb_root		root;
 	struct rb_root		tasks;
 	struct uftrace_session *first;
+	struct uftrace_task    *first_task;
 };
 
 struct uftrace_data {

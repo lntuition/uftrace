@@ -654,6 +654,83 @@ static void synthesize_depth_trigger(struct opts *opts,
 		 func, ffd.found ? "" : "kernel,", opts->depth);
 }
 
+static bool print_task_node(struct uftrace_task *task,
+			    struct uftrace_task *parent,
+			    bool *indent_mask, int indent)
+{
+	char *name = task->comm;
+	struct uftrace_task *child;
+	int orig_indent = indent;
+	bool blank = false;
+
+	pr_out("  ");
+	print_time_unit(task->time.run);
+	pr_out("  ");
+	print_time_unit(task->time.run - task->time.idle);
+	pr_out(" : ");
+	pr_indent(indent_mask, indent, true);
+	pr_out("[%d] %s\n", task->tid, name);
+
+	if (list_empty(&task->children))
+		return false;
+
+	/* clear parent indent mask at the last node */
+	if (parent && !list_is_singular(&parent->children) &&
+	    parent->children.prev == &task->siblings) {
+		int parent_indent = orig_indent - 1;
+
+		if (task->pid != parent->pid)
+			parent_indent--;
+
+		indent_mask[parent_indent] = false;
+	}
+
+	list_for_each_entry(child, &task->children, siblings) {
+		indent = orig_indent;
+
+		indent_mask[indent++] = true;
+		if (child->pid != task->pid) {
+			/* print blank line before forked child */
+			blank = true;
+			indent++;
+		}
+
+		if (blank) {
+			pr_out(" %*s : ", 23, "");
+			pr_indent(indent_mask, indent, false);
+			pr_out("\n");
+
+			blank = false;
+		}
+
+		blank |= print_task_node(child, task, indent_mask, indent);
+
+		if (&child->siblings != task->children.prev &&
+		    child->pid != task->pid) {
+			/* print blank line after forked child */
+			blank = true;
+		}
+	}
+	indent_mask[orig_indent] = false;
+	return blank;
+}
+
+static int print_task_graph(struct uftrace_data *handle)
+{
+	bool *indent_mask;
+
+	if (handle->nr_tasks <= 0)
+		return 0;
+
+	pr_out("========== TASK GRAPH ==========\n");
+	pr_out("# %10s  %10s : %s\n", "RUN-TIME", "CPU-TIME", "TASK");
+	indent_mask = xcalloc(handle->nr_tasks, sizeof(*indent_mask));
+	print_task_node(handle->sessions.first_task, NULL, indent_mask, 0);
+	free(indent_mask);
+	pr_out("\n");
+	return 1;
+}
+
 int command_graph(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
@@ -689,6 +766,14 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
+	if (opts->show_task) {
+		if (handle.hdr.feat_mask & PERF_EVENT)
+			verify_perf_task_tree(&handle);
+
+		print_task_graph(&handle);
+		goto out;
+	}
+
 	build_graph(opts, &handle, func);
 
 	graph = graph_list;
@@ -717,6 +802,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	}
 	graph_remove_task();
 
+out:
 	close_data_file(opts, &handle);
 
 	return 0;
