@@ -157,11 +157,11 @@ void create_session(struct uftrace_session_link *sessions,
 		s->pid, s->sid);
 
 	if (needs_symtab) {
+		s->symtabs.dirname = dirname;
 		s->symtabs.filename = s->exename;
 		s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
 
 		read_session_map(dirname, &s->symtabs, s->sid);
-		load_symtabs(&s->symtabs, dirname, s->exename);
 
 		load_module_symtabs(&s->symtabs);
 		load_debug_info(&s->symtabs);
@@ -955,11 +955,11 @@ TEST_CASE(task_symbol)
 
 	fp = fopen("unittest.sym", "w");
 	TEST_NE(fp, NULL);
-	fprintf(fp, "00400100 P printf\n");
-	fprintf(fp, "00400200 P __dynsym_end\n");
-	fprintf(fp, "00400300 T _start\n");
-	fprintf(fp, "00400400 T main\n");
-	fprintf(fp, "00400500 T __sym_end\n");
+	fprintf(fp, "00000100 P printf\n");
+	fprintf(fp, "00000200 P __dynsym_end\n");
+	fprintf(fp, "00000300 T _start\n");
+	fprintf(fp, "00000400 T main\n");
+	fprintf(fp, "00000500 T __sym_end\n");
 	fclose(fp);
 
 	create_session(&test_sessions, &msg, ".", "unittest",

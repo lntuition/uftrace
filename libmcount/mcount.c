@@ -1706,7 +1706,6 @@ static __used void mcount_startup(void)
 	symtabs.filename = mcount_exename;
 
 	record_proc_maps(dirname, mcount_session_name(), &symtabs);
-	load_symtabs(&symtabs, NULL, mcount_exename);
 
 	if (pattern_str)
 		patt_type = parse_filter_pattern(pattern_str);
@@ -1773,7 +1772,7 @@ static void mcount_cleanup(void)
 	if (SCRIPT_ENABLED && script_str)
 		script_finish();
 
-	unload_symtabs(&symtabs);
+	unload_module_symtabs();
 
 	pr_dbg("exit from libmcount\n");
 }
