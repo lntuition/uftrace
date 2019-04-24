@@ -982,28 +982,19 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		free(name);
 
 		if (module) {
-			/* is it the main executable? */
-			if (!strncmp(module, basename(symtabs->filename),
-				     strlen(module))) {
-				ret += add_trigger_entry(root, &symtabs->symtab,
-							 &patt, &tr,
-							 &symtabs->dinfo,
-							 setting);
-				ret += add_trigger_entry(root, &symtabs->dsymtab,
-							 &patt, &tr,
-							 &symtabs->dinfo,
-							 setting);
-			}
-			else if (!strcasecmp(module, "PLT")) {
-				ret = add_trigger_entry(root, &symtabs->dsymtab,
-							&patt, &tr,
-							&symtabs->dinfo,
-							setting);
+			if (!strcasecmp(module, "PLT")) {
+				/* FIXME */
 			}
 			else if (has_kernel_opt(module)) {
+				/* use any dinfo available */
+				for_each_map(symtabs, map) {
+					if (map->mod != NULL)
+						break;
+				}
+
 				ret = add_trigger_entry(root, get_kernel_symtab(),
 							&patt, &tr,
-							&symtabs->dinfo,
+							&map->mod->dinfo,
 							setting);
 			}
 			else {
@@ -1022,15 +1013,6 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			free(module);
 		}
 		else {
-			/* check main executable's symtab first */
-			ret += add_trigger_entry(root, &symtabs->symtab,
-						 &patt, &tr, &symtabs->dinfo,
-						 setting);
-			ret += add_trigger_entry(root, &symtabs->dsymtab,
-						 &patt, &tr, &symtabs->dinfo,
-						 setting);
-
-			/* and then find all module's symtabs */
 			for_each_map(symtabs, map) {
 				struct symtab *stab = &map->mod->symtab;
 				struct debug_info *dinfo = &map->mod->dinfo;
@@ -1231,16 +1213,22 @@ static void filter_test_load_symtabs(struct symtabs *stabs)
 		{ 0x4000, 0x1000, ST_GLOBAL_FUNC, "foo::baz2" },
 		{ 0x5000, 0x1000, ST_GLOBAL_FUNC, "foo::baz3" },
 		{ 0x6000, 0x1000, ST_GLOBAL_FUNC, "foo::~foo" },
+		{ 0x21000,0x1000, ST_PLT_FUNC, "malloc" },
+		{ 0x22000,0x1000, ST_PLT_FUNC, "free" },
 	};
-	static struct sym dsyms[] = {
-		{ 0x21000, 0x1000, ST_PLT_FUNC, "malloc" },
-		{ 0x22000, 0x1000, ST_PLT_FUNC, "free" },
+	static struct uftrace_module mod = {
+		.symtab = {
+			.sym    = syms,
+			.nr_sym = ARRAY_SIZE(syms),
+		},
+	};
+	static struct uftrace_mmap map = {
+		.mod   = &mod,
+		.start = 0x0,
+		.end   = 0x24000,
 	};
 
-	stabs->symtab.sym = syms;
-	stabs->symtab.nr_sym = ARRAY_SIZE(syms);
-	stabs->dsymtab.sym = dsyms;
-	stabs->dsymtab.nr_sym = ARRAY_SIZE(dsyms);
+	stabs->maps = &map;
 	stabs->loaded = true;
 	stabs->loaded_debug = true;  /* skip DWARF debug info parsing */
 }
