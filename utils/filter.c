@@ -1010,10 +1010,11 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 				map = find_map_by_name(symtabs, module);
 				if (map && map->mod) {
 					struct symtab *stab = &map->mod->symtab;
+					struct debug_info *dinfo = &map->mod->dinfo;
 
 					ret = add_trigger_entry(root, stab,
 								&patt, &tr,
-								&map->dinfo,
+								dinfo,
 								setting);
 				}
 			}
@@ -1032,6 +1033,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			/* and then find all module's symtabs */
 			for_each_map(symtabs, map) {
 				struct symtab *stab = &map->mod->symtab;
+				struct debug_info *dinfo = &map->mod->dinfo;
 
 				/* some modules don't have symbol table */
 				if (map->mod == NULL)
@@ -1039,7 +1041,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 
 				ret += add_trigger_entry(root, stab,
 							 &patt, &tr,
-							 &map->dinfo,
+							 dinfo,
 							 setting);
 			}
 		}
