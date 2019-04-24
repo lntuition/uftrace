@@ -345,12 +345,10 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		return -1;
 	}
 
-	if (flags & SYMTAB_FL_ADJ_OFFSET) {
-		elf_for_each_phdr(&elf, &iter) {
-			if (iter.phdr.p_type == PT_LOAD) {
-				offset -= iter.phdr.p_vaddr;
-				break;
-			}
+	elf_for_each_phdr(&elf, &iter) {
+		if (iter.phdr.p_type == PT_LOAD) {
+			offset -= iter.phdr.p_vaddr;
+			break;
 		}
 	}
 
@@ -500,12 +498,10 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 	unsigned symidx;
 	struct sym *sym;
 
-	if (flags & SYMTAB_FL_ADJ_OFFSET) {
-		elf_for_each_phdr(elf, &sec_iter) {
-			if (sec_iter.phdr.p_type == PT_LOAD) {
-				offset -= sec_iter.phdr.p_vaddr;
-				break;
-			}
+	elf_for_each_phdr(elf, &sec_iter) {
+		if (sec_iter.phdr.p_type == PT_LOAD) {
+			offset -= sec_iter.phdr.p_vaddr;
+			break;
 		}
 	}
 
@@ -691,12 +687,10 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 	if (elf_init(filename, &elf) < 0)
 		return -1;
 
-	if (flags & SYMTAB_FL_ADJ_OFFSET) {
-		elf_for_each_phdr(&elf, &iter) {
-			if (iter.phdr.p_type == PT_LOAD) {
-				offset -= iter.phdr.p_vaddr;
-				break;
-			}
+	elf_for_each_phdr(&elf, &iter) {
+		if (iter.phdr.p_type == PT_LOAD) {
+			offset -= iter.phdr.p_vaddr;
+			break;
 		}
 	}
 
@@ -846,9 +840,6 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 
 	symtabs->dirname = dirname;
 	symtabs->filename = filename;
-
-	if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
-		offset = symtabs->exec_base;
 
 	/* try .sym files first */
 	if (dirname != NULL && (symtabs->flags & SYMTAB_FL_USE_SYMFILE)) {
@@ -1176,10 +1167,8 @@ void load_module_symtabs(struct symtabs *symtabs)
 
 			xasprintf(&symfile, "%s/%s.sym",
 				  symtabs->dirname, libname);
-			if (access(symfile, F_OK) == 0) {
-				load_module_symbol_file(&map->symtab, symfile,
-							map->start);
-			}
+			if (access(symfile, F_OK) == 0)
+				load_module_symbol_file(&map->symtab, symfile, 0);
 
 			free(symfile);
 
@@ -1192,11 +1181,11 @@ void load_module_symtabs(struct symtabs *symtabs)
 		 * and dynamic symbols.  Maybe it can be changed later to
 		 * support more sophisticated symbol handling.
 		 */
-		load_symtab(&map->symtab, map->libname, map->start, flags);
-		load_dynsymtab(&dsymtab, map->libname, map->start, flags);
+		load_symtab(&map->symtab, map->libname, 0, flags);
+		load_dynsymtab(&dsymtab, map->libname, 0, flags);
 		merge_symtabs(&map->symtab, &dsymtab);
 		update_symtab_using_dynsym(&map->symtab, map->libname,
-					   map->start, flags);
+					   0, flags);
 	}
 }
 
@@ -1410,9 +1399,6 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 			break;
 		}
 	}
-
-	/* save relative offset of symbol address */
-	symtabs->flags |= SYMTAB_FL_ADJ_OFFSET;
 
 do_it:
 	fprintf(fp, "# symbols: %lu\n", stab->nr_sym);

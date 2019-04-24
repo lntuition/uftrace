@@ -159,8 +159,6 @@ void create_session(struct uftrace_session_link *sessions,
 	if (needs_symtab) {
 		s->symtabs.filename = s->exename;
 		s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
-		if (sym_rel_addr)
-			s->symtabs.flags |= SYMTAB_FL_ADJ_OFFSET;
 
 		read_session_map(dirname, &s->symtabs, s->sid);
 		load_symtabs(&s->symtabs, dirname, s->exename);

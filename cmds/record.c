@@ -1417,7 +1417,6 @@ static void save_session_symbols(struct opts *opts)
 	for (i = 0; i < maps; i++) {
 		struct symtabs symtabs = {
 			.dirname  = opts->dirname,
-			.flags    = SYMTAB_FL_ADJ_OFFSET,
 		};
 		char sid[20];
 
