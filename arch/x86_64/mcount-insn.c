@@ -45,7 +45,6 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm,
 
 	detail = insn->detail;
 
-	/* print the groups this instruction belong to */
 	if (detail->groups_count > 0) {
 		for (n = 0; n < detail->groups_count; n++) {
 			if (detail->groups[n] == CS_GRP_CALL ||
@@ -87,6 +86,51 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm,
 	return status;
 }
 
+static int check_unsupported(struct mcount_disasm_engine *disasm,
+			     cs_insn *insn, uintptr_t addr, uint32_t size)
+{
+	int i;
+	cs_x86 *x86;
+	cs_detail *detail = insn->detail;
+	unsigned long target = insn->address + insn->size;
+	bool jump = false;
+
+	if (detail == NULL)
+		return CODE_PATCH_OK;
+
+	detail = insn->detail;
+
+	for (i = 0; i < detail->groups_count; i++) {
+		if (detail->groups[i] == CS_GRP_JUMP)
+			jump = true;
+	}
+
+	if (!jump)
+		return CODE_PATCH_OK;
+
+	x86 = &insn->detail->x86;
+	for (i = 0; i < x86->op_count; i++) {
+		cs_x86_op *op = &x86->operands[i];
+
+		switch((int)op->type) {
+		case X86_OP_IMM:
+			target += op->imm;
+
+			/* disallow (back) jump to the prologue */
+			if (addr <= target && target < addr + size)
+				return CODE_PATCH_NO;
+			break;
+		case X86_OP_MEM:
+			/* TODO */
+			break;
+		default:
+			break;
+		}
+	}
+
+	return CODE_PATCH_OK;
+}
+
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       uintptr_t addr, uint32_t size)
 {
@@ -111,6 +155,12 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		}
 	}
 
+	while (i < count) {
+		if (check_unsupported(disasm, &insn[i], addr, code_size) == CODE_PATCH_NO) {
+			ret = INSTRUMENT_FAILED;
+			break;
+		}
+	}
 out:
 	if (count)
 		cs_free(insn, count);
