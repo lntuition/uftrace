@@ -1430,13 +1430,11 @@ static void save_session_symbols(struct opts *opts)
 		read_session_map(opts->dirname, &symtabs, sid);
 
 		load_module_symtabs(&symtabs);
-		save_module_symtabs(&symtabs);
 
 		delete_session_map(&symtabs);
 		unload_symtabs(&symtabs);
 	}
 
-	unload_module_symtabs();
 	free(map_list);
 }
 
@@ -1948,6 +1946,7 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 	list_for_each_entry_safe(dlib, tmp, &dlopen_libs, list) {
 		struct symtabs dlib_symtabs = {
 			.loaded = false,
+			.flags = SYMTAB_FL_ADJ_OFFSET,
 		};
 
 		load_symtabs(&dlib_symtabs, opts->dirname, dlib->libname);
@@ -1958,6 +1957,9 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 		free(dlib->libname);
 		free(dlib);
 	}
+
+	save_module_symtabs(opts->dirname);
+	unload_module_symtabs();
 
 	if (opts->host) {
 		int sock = wd->sock;
