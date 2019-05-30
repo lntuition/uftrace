@@ -1071,6 +1071,10 @@ int main(int argc, char *argv[])
 	if (opts.use_pager && opts.mode != UFTRACE_MODE_LIVE)
 		start_pager(pager);
 
+	/* the srcline info is used for the below commands only */
+	if (opts.mode != UFTRACE_MODE_RECORD && opts.mode != UFTRACE_MODE_TUI)
+		opts.srcline = false;
+
 	if (opts.idx == 0)
 		opts.idx = argc;
 

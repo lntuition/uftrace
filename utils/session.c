@@ -114,13 +114,17 @@ void delete_session_map(struct symtabs *symtabs)
  * @msg: uftrace session message read from task file
  * @dirname: uftrace data directory name
  * @exename: executable name started this session
+ * @sym_rel_addr: whether symbol table uses relative address
+ * @needs_symtab: whether symbol table loading is needed
+ * @needs_srcline: whether debug info loading is needed
  *
  * This function allocates a new session started by a task.  The new
  * session will be added to sessions tree sorted by pid and timestamp.
+ * Also it loads symbol table and debug info if needed.
  */
 void create_session(struct uftrace_session_link *sessions,
 		    struct uftrace_msg_sess *msg, char *dirname, char *exename,
-		    bool sym_rel_addr, bool needs_symtab)
+		    bool sym_rel_addr, bool needs_symtab, bool needs_srcline)
 {
 	struct uftrace_session *s;
 	struct uftrace_task *t;
@@ -166,7 +170,7 @@ void create_session(struct uftrace_session_link *sessions,
 		read_session_map(dirname, &s->symtabs, s->sid);
 
 		load_module_symtabs(&s->symtabs);
-		load_debug_info(&s->symtabs, true);
+		load_debug_info(&s->symtabs, needs_srcline);
 	}
 
 	if (sessions->first == NULL)
@@ -669,7 +673,7 @@ TEST_CASE(session_search)
 		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
 		create_session(&test_sessions, &msg, ".", "unittest",
-			       false, false);
+			       false, false, false);
 		remove("sid-test.map");
 	}
 
@@ -723,7 +727,7 @@ TEST_CASE(task_search)
 		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
 		create_session(&test_sessions, &smsg, ".", "unittest",
-			       false, false);
+			       false, false, false);
 		create_task(&test_sessions, &tmsg, false);
 		remove("sid-initial.map");
 
@@ -828,7 +832,7 @@ TEST_CASE(task_search)
 		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
 		create_session(&test_sessions, &smsg, ".", "unittest",
-			       false, false);
+			       false, false, false);
 		create_task(&test_sessions, &tmsg, false);
 		remove("sid-after_exec.map");
 
@@ -960,7 +964,7 @@ TEST_CASE(task_symbol)
 	fclose(fp);
 
 	create_session(&test_sessions, &msg, ".", "unittest",
-		       false, true);
+		       false, true, false);
 	create_task(&test_sessions, &tmsg, false);
 	remove("sid-test.map");
 	remove("unittest.sym");
@@ -1009,7 +1013,7 @@ TEST_CASE(task_symbol_dlopen)
 	fclose(fp);
 
 	create_session(&test_sessions, &msg, ".", "unittest",
-		       false, true);
+		       false, true, false);
 	remove("sid-test.map");
 
 	TEST_NE(test_sessions.first, NULL);
