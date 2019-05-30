@@ -188,6 +188,9 @@ RECORD CONFIG OPTIONS
 :   Disable ASLR (Address Space Layout Randomization).  It makes the target
     process fix its address space layout.
 
+\--no-srcline
+:   Disable recording source line in the debug info.
+
 
 FILTERS
 =======
