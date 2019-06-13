@@ -127,7 +127,8 @@ __weak void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 }
 
 __weak int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
-			     struct mcount_disasm_engine *disasm)
+			     struct mcount_disasm_engine *disasm,
+			     unsigned min_size)
 {
 	return -1;
 }
@@ -221,7 +222,8 @@ static int prepare_dynamic_update(struct mcount_disasm_engine *disasm,
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			     enum uftrace_pattern_type ptype,
-			     struct mcount_disasm_engine *disasm)
+			     struct mcount_disasm_engine *disasm,
+			     unsigned min_size)
 {
 	struct symtab *symtab = &symtabs->maps->mod->symtab;
 	struct strv funcs = STRV_INIT;
@@ -269,7 +271,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 				continue;
 
 			found = true;
-			switch (mcount_patch_func(mdinfo, sym, disasm)) {
+			switch (mcount_patch_func(mdinfo, sym, disasm, min_size)) {
 			case INSTRUMENT_FAILED:
 				stats.failed++;
 				break;
@@ -331,13 +333,19 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			  struct mcount_disasm_engine *disasm)
 {
 	int ret = 0;
+	char *size_filter;
+	unsigned min_size = 0;
 
 	if (prepare_dynamic_update(disasm, symtabs) < 0) {
 		pr_dbg("cannot setup dynamic tracing\n");
 		return -1;
 	}
 
-	ret = do_dynamic_update(symtabs, patch_funcs, ptype, disasm);
+	size_filter = getenv("UFTRACE_PATCH_SIZE");
+	if (size_filter != NULL)
+		min_size = strtoul(size_filter, NULL, 0);
+
+	ret = do_dynamic_update(symtabs, patch_funcs, ptype, disasm, min_size);
 
 	if (stats.total && stats.failed) {
 		int success = stats.total - stats.failed - stats.skipped;
